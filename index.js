@@ -60,9 +60,13 @@ app.get('/', function (req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// API Routes
+/* API Routes */
+// Create and shorten a new URL
 app.post('/api/shorturl', async (req, res) => {
   const originalUrl = req.body.url;
+  if (!originalUrl) {
+    return res.json({ error: 'invalid url' });
+  }
 
   const urlParts = new URL(originalUrl);
   dns.lookup(urlParts.hostname, async (err) => {
@@ -86,6 +90,37 @@ app.post('/api/shorturl', async (req, res) => {
       res.status(500).json({ error: 'internal server error' });
     }
   });
+});
+
+// List All Urls Route
+app.get('/api/shorturl/list', async (req, res) => {
+  try {
+    const result = await URLModel.find({}).select({ original_url: 1, short_url: 1, _id: 0 });
+    res.json(result);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: 'internal server error' });
+  }
+});
+
+// Redirect to original url via short url
+app.get('/api/shorturl/:short_url', async (req, res) => {
+  const shortUrl = parseInt(req.params.short_url);
+  if (isNaN(shortUrl)) {
+    return res.status(400).json({ error: 'wrong format' });
+  }
+
+  try {
+    const result = await URLModel.findOne({ short_url: shortUrl });
+    if (result) {
+      res.redirect(result.original_url);
+    } else {
+      res.status(404).json({ error: 'No short URL found for the given input' });
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: 'internal server error' });
+  }
 });
 
 app.listen(port, function () {
